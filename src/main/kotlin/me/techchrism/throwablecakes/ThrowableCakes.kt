@@ -1,24 +1,30 @@
 package me.techchrism.throwablecakes
 
 import org.bukkit.*
+import org.bukkit.block.data.type.Cake
 import org.bukkit.entity.*
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.block.Action
 import org.bukkit.event.player.PlayerInteractEvent
 import org.bukkit.inventory.EquipmentSlot
-import org.bukkit.inventory.ItemStack
-import org.bukkit.metadata.FixedMetadataValue
 import org.bukkit.plugin.java.JavaPlugin
 import org.bukkit.util.Vector
+import kotlin.math.PI
+import kotlin.math.atan2
+import kotlin.random.Random
 
-data class ThrownCake(val stand: Entity, val velocity: Vector, val thrower: Player, var deadTime: Int = -1)
+data class TrackedEntity(val entity: LivingEntity, val relativePosition: Vector, val initialDirection: Vector)
+data class ThrownCake(val stand: Entity, val velocity: Vector, val thrower: Player, var deadTime: Int = -1, var trackedEntity: TrackedEntity? = null)
 
 class ThrowableCakes : JavaPlugin(), Listener {
     private val cakes: HashSet<ThrownCake> = HashSet()
     private val earthGravity = Vector(0.0, -9.807, 0.0)
     private val minecraftGravity = earthGravity.clone().multiply(2.9)
     private val gravityPerTick = minecraftGravity.clone().multiply(0.05)
+    
+    // Subtract 0.125 from a side for each bite
+    private val cakeVolume = (0.5 * 0.875 * 0.875)
     
     private fun Entity.teleportWithPassengers(location: Location) {
         val passengerSet: HashSet<Entity> = HashSet()
@@ -40,15 +46,36 @@ class ThrowableCakes : JavaPlugin(), Listener {
             cakes.removeIf { !(it.stand.isValid) }
             
             for(cake in cakes) {
+                for(passenger in cake.stand.passengers) {
+                    if(passenger is FallingBlock) {
+                        passenger.ticksLived = 1
+                    }
+                }
+                
                 if(cake.deadTime != -1) {
                     cake.deadTime++
-                    if(cake.deadTime < 500) continue
                     
-                    
-                    for(passenger in cake.stand.passengers) {
-                        passenger.remove()
+                    val tracked = cake.trackedEntity
+                    if(tracked != null) {
+                        if(!tracked.entity.isValid) {
+                            cake.trackedEntity = null
+                        } else {
+                            val currentAngle = with(tracked.entity.location.direction) { atan2(x, z) }
+                            val initialAngle = with(tracked.initialDirection) { atan2(x, z) }
+                            
+                            val newLoc = tracked.entity.location.clone().add(tracked.relativePosition.clone()
+                                .rotateAroundY(currentAngle - initialAngle))
+                            cake.stand.teleportWithPassengers(newLoc)
+                        }
                     }
-                    cake.stand.remove()
+                    
+                    if(cake.deadTime > 10000) {
+                        for (passenger in cake.stand.passengers) {
+                            passenger.remove()
+                        }
+                        cake.stand.remove()
+                    }
+                    continue
                 }
                 
                 cake.velocity.add(gravityPerTick)
@@ -60,10 +87,13 @@ class ThrowableCakes : JavaPlugin(), Listener {
                     diff.length(),
                     FluidCollisionMode.NEVER,
                     true,
-                    0.5
+                    0.0
                 ) {
-                    //it != cake.thrower && it != cake.stand && !cake.stand.passengers.contains(it)
-                    false
+                    it != cake.thrower &&
+                            it != cake.stand &&
+                            !cake.stand.passengers.contains(it) &&
+                            it is LivingEntity &&
+                            !it.isInvisible
                 }
 
                 if(traceResult != null) {
@@ -72,7 +102,25 @@ class ThrowableCakes : JavaPlugin(), Listener {
                     with(traceResult.hitPosition) {
                         loc = Location(cake.stand.world, x, y, z)
                     }
-                    cake.stand.teleportWithPassengers(loc)
+                    
+                    val hitEntity = traceResult.hitEntity
+                    if(hitEntity != null && hitEntity is LivingEntity) {
+                        // Try to prevent z-fighting by adding a small random value
+                        val relative = traceResult.hitPosition.clone().subtract(hitEntity.location.toVector()).addRandom()
+                        cake.trackedEntity = TrackedEntity(
+                            hitEntity,
+                            relative,
+                            hitEntity.location.direction.clone()
+                        )
+                        cake.stand.teleportWithPassengers(hitEntity.location.clone().add(relative))
+                        
+                        // Conservation of momentum (fancy stuff)
+                        // Treat bounding box volume as substitute for mass
+                        hitEntity.velocity = hitEntity.velocity.add(diff.clone().multiply(cakeVolume / hitEntity.boundingBox.volume))
+                    } else {
+                        cake.stand.teleportWithPassengers(loc)
+                    }
+                    
                     cake.stand.world.playSound(cake.stand.location, Sound.BLOCK_MUD_BREAK, 1.0F, 1.0F)
                 } else {
                     cake.stand.teleportWithPassengers(cake.stand.location.add(diff))
@@ -87,13 +135,18 @@ class ThrowableCakes : JavaPlugin(), Listener {
         entity.velocity = location.toVector().subtract(entity.location.toVector()).normalize()
     }
     
+    private fun Vector.addRandom(): Vector {
+        val range = 0.05
+        this.x += Random.nextDouble(-1 * range, range)
+        this.y += Random.nextDouble(-1 * range, range)
+        this.z += Random.nextDouble(-1 * range, range)
+        return this
+    }
+    
     @EventHandler
     private fun onCakeInteract(event: PlayerInteractEvent) {
         if (event.action == Action.RIGHT_CLICK_AIR && event.hand == EquipmentSlot.HAND && event.player.inventory.itemInMainHand.type == Material.CAKE) {
-            //val snowball = event.player.launchProjectile(Snowball::class.java)
-            //snowball.setMetadata("cake", FixedMetadataValue(this, true))
-            
-            /*val stand = event.player.world.spawn(event.player.eyeLocation, ArmorStand::class.java) {
+            val stand = event.player.world.spawn(event.player.eyeLocation, ArmorStand::class.java) {
                 with(it) {
                     setArms(false)
                     setGravity(false)
@@ -103,20 +156,11 @@ class ThrowableCakes : JavaPlugin(), Listener {
                     isSmall = true
                     isVisible = false
                     isMarker = true
-                    //equipment?.helmet = ItemStack(Material.CAKE, 1)
-                    //equipment?.setItemInMainHand(ItemStack(Material.CAKE, 1))
-                }
-            }*/
-            val stand = event.player.world.spawn(event.player.eyeLocation, Minecart::class.java) {
-                with(it) {
-                    
-                    setGravity(false)
-                    
-                    //equipment?.helmet = ItemStack(Material.CAKE, 1)
-                    //equipment?.setItemInMainHand(ItemStack(Material.CAKE, 1))
                 }
             }
-            val sand = event.player.world.spawnFallingBlock(event.player.eyeLocation, Material.CAKE.createBlockData())
+            val cakeData = Material.CAKE.createBlockData() as Cake
+            cakeData.bites = Random.nextInt(1, cakeData.maximumBites)
+            val sand = event.player.world.spawnFallingBlock(event.player.eyeLocation, cakeData)
             sand.setGravity(false)
             stand.addPassenger(sand)
             
