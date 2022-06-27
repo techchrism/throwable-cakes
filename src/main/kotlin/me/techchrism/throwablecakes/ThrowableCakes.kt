@@ -98,7 +98,7 @@ class ThrowableCakes : JavaPlugin(), Listener {
                 } else if(cake.stillTicks != -1) {
                     cake.stillTicks++
 
-                    if(cake.stillTicks >= 7) {
+                    if(cake.stillTicks >= 4) {
                         for (passenger in cake.stand.passengers) {
                             passenger.remove()
                         }
@@ -137,23 +137,24 @@ class ThrowableCakes : JavaPlugin(), Listener {
                             // Conservation of momentum (fancy stuff)
                             // Treat bounding box volume as substitute for mass
                             hitEntity.velocity = hitEntity.velocity.add(diff.clone().multiply(cakeVolume / hitEntity.boundingBox.volume))
-                            
-                            // Add particle effects
-                            val orthogonal = diff.clone().setY(0).normalize().rotateAroundY(PI / 2)
-                            val particleLoc = loc.clone().subtract(diff.clone().normalize().multiply(0.4))
-                            for(i in 0..500) {
-                                val vel = diff.clone().normalize()
-                                    .rotateAroundNonUnitAxis(orthogonal, Random.nextDouble(0.0, PI / 4) * -1)
-                                    .rotateAroundNonUnitAxis(diff, Random.nextDouble(-0.5 * PI, 0.5 * PI))
-                                    .multiply(Random.nextDouble(0.3, 0.5))
-                                with(vel) {
-                                    hitEntity.world.spawnParticle(Particle.SNOWFLAKE, particleLoc, 0, x, y, z)
-                                }
-                                
-                            }
                         } else {
                             cake.stand.teleportWithPassengers(loc)
                             cake.stillTicks = 0
+
+                            
+                        }
+
+                        // Add particle effects
+                        val orthogonal = diff.clone().setY(0).normalize().rotateAroundY(PI / 2)
+                        val particleLoc = loc.clone().subtract(diff.clone().normalize().multiply(0.4))
+                        for(i in 0..500) {
+                            val vel = diff.clone().normalize()
+                                .rotateAroundNonUnitAxis(orthogonal, Random.nextDouble(0.0, PI / 4) * -1)
+                                .rotateAroundNonUnitAxis(diff, Random.nextDouble(-0.5 * PI, 0.5 * PI))
+                                .multiply(Random.nextDouble(0.3, 0.5))
+                            with(vel) {
+                                cake.stand.world.spawnParticle(Particle.SNOWFLAKE, particleLoc, 0, x, y, z)
+                            }
                         }
 
                         for(i in 0..4) {
