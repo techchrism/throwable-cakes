@@ -147,8 +147,7 @@ class ThrowableCakes : JavaPlugin(), Listener {
                                     .rotateAroundNonUnitAxis(diff, Random.nextDouble(-0.5 * PI, 0.5 * PI))
                                     .multiply(Random.nextDouble(0.3, 0.5))
                                 with(vel) {
-                                    hitEntity.world.spawnParticle(Particle.SNOWFLAKE,
-                                        particleLoc, 0, x, y, z)
+                                    hitEntity.world.spawnParticle(Particle.SNOWFLAKE, particleLoc, 0, x, y, z)
                                 }
                                 
                             }
@@ -157,7 +156,9 @@ class ThrowableCakes : JavaPlugin(), Listener {
                             cake.stillTicks = 0
                         }
 
-                        cake.stand.world.playSound(cake.stand.location, Sound.BLOCK_MUD_BREAK, 1.0F, 1.0F)
+                        for(i in 0..4) {
+                            cake.stand.world.playSound(cake.stand.location, Sound.BLOCK_MUD_BREAK, 1.0F, Random.nextDouble(0.5, 1.0).toFloat())
+                        }
                     } else {
                         cake.stand.teleportWithPassengers(cake.stand.location.add(diff))
                     }
