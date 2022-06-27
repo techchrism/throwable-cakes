@@ -140,8 +140,6 @@ class ThrowableCakes : JavaPlugin(), Listener {
                         } else {
                             cake.stand.teleportWithPassengers(loc)
                             cake.stillTicks = 0
-
-                            
                         }
 
                         // Add particle effects
@@ -182,8 +180,11 @@ class ThrowableCakes : JavaPlugin(), Listener {
     
     @EventHandler
     private fun onCakeInteract(event: PlayerInteractEvent) {
-        if (event.action == Action.RIGHT_CLICK_AIR && event.hand == EquipmentSlot.HAND && event.player.inventory.itemInMainHand.type == Material.CAKE) {
-            val stand = event.player.world.spawn(event.player.eyeLocation, ArmorStand::class.java) {
+        if (event.action == Action.RIGHT_CLICK_AIR && event.item?.type == Material.CAKE) {
+            val spawnLoc = event.player.eyeLocation.clone()
+                .add(event.player.eyeLocation.direction.clone().normalize().multiply(1.5))
+                .add(Vector(0.0, -0.5, 0.0))
+            val stand = event.player.world.spawn(spawnLoc, ArmorStand::class.java) {
                 with(it) {
                     setArms(false)
                     setGravity(false)
@@ -197,11 +198,12 @@ class ThrowableCakes : JavaPlugin(), Listener {
             }
             val cakeData = Material.CAKE.createBlockData() as Cake
             //cakeData.bites = Random.nextInt(1, cakeData.maximumBites)
-            val sand = event.player.world.spawnFallingBlock(event.player.eyeLocation, cakeData)
+            val sand = event.player.world.spawnFallingBlock(spawnLoc, cakeData)
             sand.setGravity(false)
             stand.addPassenger(sand)
             
-            cakes.add(ThrownCake(stand, event.player.eyeLocation.direction.clone().multiply(30), event.player))
+            cakes.add(ThrownCake(stand, event.player.eyeLocation.direction.clone().multiply(30).add(event.player.velocity), event.player))
+            event.player.world.playSound(event.player.location, Sound.ENTITY_SNOWBALL_THROW, 0.5F, 0.35F)
         }
     }
 }
