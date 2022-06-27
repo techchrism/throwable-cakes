@@ -10,12 +10,20 @@ import org.bukkit.event.player.PlayerInteractEvent
 import org.bukkit.inventory.EquipmentSlot
 import org.bukkit.plugin.java.JavaPlugin
 import org.bukkit.util.Vector
-import kotlin.math.PI
 import kotlin.math.atan2
+import kotlin.math.pow
 import kotlin.random.Random
 
-data class TrackedEntity(val entity: LivingEntity, val relativePosition: Vector, val initialDirection: Vector)
-data class ThrownCake(val stand: Entity, val velocity: Vector, val thrower: Player, var deadTime: Int = -1, var trackedEntity: TrackedEntity? = null)
+data class TrackedEntity(val entity: LivingEntity,
+                         val relativePosition: Vector,
+                         val initialDirection: Vector,
+                         var trackedTicks: Int = 0)
+data class ThrownCake(
+    val stand: Entity,
+    val velocity: Vector,
+    val thrower: Player,
+    var stillTicks: Int = -1,
+    var trackedEntity: TrackedEntity? = null)
 
 class ThrowableCakes : JavaPlugin(), Listener {
     private val cakes: HashSet<ThrownCake> = HashSet()
@@ -51,82 +59,93 @@ class ThrowableCakes : JavaPlugin(), Listener {
                         passenger.ticksLived = 1
                     }
                 }
-                
-                if(cake.deadTime != -1) {
-                    cake.deadTime++
-                    
-                    val tracked = cake.trackedEntity
-                    if(tracked != null) {
-                        if(!tracked.entity.isValid) {
-                            cake.trackedEntity = null
-                        } else {
-                            val currentAngle = with(tracked.entity.location.direction) { atan2(x, z) }
-                            val initialAngle = with(tracked.initialDirection) { atan2(x, z) }
+
+                val tracked = cake.trackedEntity
+                if(tracked != null) {
+                    if(!tracked.entity.isValid) {
+                        cake.trackedEntity = null
+                    } else {
+                        tracked.entity.freezeTicks = tracked.entity.maxFreezeTicks - 20
+                        
+                        tracked.trackedTicks++
+                        var downOffset = 0.0
+                        val downDelay = 50
+                        if(tracked.trackedTicks > downDelay) {
+                            downOffset = (tracked.trackedTicks - downDelay).toDouble().pow(2.5) * (0.05 * 0.001)
                             
-                            val newLoc = tracked.entity.location.clone().add(tracked.relativePosition.clone()
-                                .rotateAroundY(currentAngle - initialAngle))
-                            cake.stand.teleportWithPassengers(newLoc)
+                            if(Random.nextInt(0, 3) == 0) {
+                                cake.stand.world.playSound(cake.stand.location, Sound.BLOCK_BEEHIVE_DRIP, 0.4F, Random.nextDouble(0.5, 1.5).toFloat())
+                            }
+                        }
+                        
+                        val currentAngle = with(tracked.entity.location.direction) { atan2(x, z) }
+                        val initialAngle = with(tracked.initialDirection) { atan2(x, z) }
+
+                        val newLoc = tracked.entity.location.clone().add(tracked.relativePosition.clone()
+                            .rotateAroundY(currentAngle - initialAngle))
+                            .add(0.0, -1 * downOffset, 0.0)
+                        cake.stand.teleportWithPassengers(newLoc)
+                        
+                        if(newLoc.y < tracked.entity.location.y) {
+                            for (passenger in cake.stand.passengers) {
+                                passenger.remove()
+                            }
+                            cake.stand.remove()
                         }
                     }
                     
-                    if(cake.deadTime > 10000) {
+                } else if(cake.stillTicks != -1) {
+                    cake.stillTicks++
+
+                    if(cake.stillTicks >= 7) {
                         for (passenger in cake.stand.passengers) {
                             passenger.remove()
                         }
                         cake.stand.remove()
                     }
-                    continue
-                }
-                
-                cake.velocity.add(gravityPerTick)
-                val diff = cake.velocity.clone().multiply(0.05)
-
-                val traceResult = cake.stand.world.rayTrace(
-                    cake.stand.location,
-                    diff.clone().normalize(),
-                    diff.length(),
-                    FluidCollisionMode.NEVER,
-                    true,
-                    0.0
-                ) {
-                    it != cake.thrower &&
-                            it != cake.stand &&
-                            !cake.stand.passengers.contains(it) &&
-                            it is LivingEntity &&
-                            !it.isInvisible
-                }
-
-                if(traceResult != null) {
-                    cake.deadTime = 0
-                    var loc: Location
-                    with(traceResult.hitPosition) {
-                        loc = Location(cake.stand.world, x, y, z)
-                    }
                     
-                    val hitEntity = traceResult.hitEntity
-                    if(hitEntity != null && hitEntity is LivingEntity) {
-                        // Try to prevent z-fighting by adding a small random value
-                        val relative = traceResult.hitPosition.clone().subtract(hitEntity.location.toVector()).addRandom()
-                        cake.trackedEntity = TrackedEntity(
-                            hitEntity,
-                            relative,
-                            hitEntity.location.direction.clone()
-                        )
-                        cake.stand.teleportWithPassengers(hitEntity.location.clone().add(relative))
-                        
-                        // Conservation of momentum (fancy stuff)
-                        // Treat bounding box volume as substitute for mass
-                        hitEntity.velocity = hitEntity.velocity.add(diff.clone().multiply(cakeVolume / hitEntity.boundingBox.volume))
-                    } else {
-                        cake.stand.teleportWithPassengers(loc)
-                    }
-                    
-                    cake.stand.world.playSound(cake.stand.location, Sound.BLOCK_MUD_BREAK, 1.0F, 1.0F)
                 } else {
-                    cake.stand.teleportWithPassengers(cake.stand.location.add(diff))
+                    cake.velocity.add(gravityPerTick)
+                    val diff = cake.velocity.clone().multiply(0.05)
+
+                    val traceResult = cake.stand.world.rayTrace(
+                        cake.stand.location,
+                        diff.clone().normalize(),
+                        diff.length(),
+                        FluidCollisionMode.NEVER,
+                        true,
+                        0.0
+                    ) {
+                        it != cake.thrower &&
+                                it != cake.stand &&
+                                !cake.stand.passengers.contains(it) &&
+                                it is LivingEntity &&
+                                !it.isInvisible
+                    }
+
+                    if(traceResult != null) {
+                        val loc = with(traceResult.hitPosition) { Location(cake.stand.world, x, y, z) }
+
+                        val hitEntity = traceResult.hitEntity
+                        if(hitEntity != null && hitEntity is LivingEntity) {
+                            // Try to prevent z-fighting by adding a small random value
+                            val relative = traceResult.hitPosition.clone().subtract(hitEntity.location.toVector()).addRandom()
+                            cake.trackedEntity = TrackedEntity(hitEntity, relative, hitEntity.location.direction.clone())
+                            cake.stand.teleportWithPassengers(hitEntity.location.clone().add(relative))
+
+                            // Conservation of momentum (fancy stuff)
+                            // Treat bounding box volume as substitute for mass
+                            hitEntity.velocity = hitEntity.velocity.add(diff.clone().multiply(cakeVolume / hitEntity.boundingBox.volume))
+                        } else {
+                            cake.stand.teleportWithPassengers(loc)
+                            cake.stillTicks = 0
+                        }
+
+                        cake.stand.world.playSound(cake.stand.location, Sound.BLOCK_MUD_BREAK, 1.0F, 1.0F)
+                    } else {
+                        cake.stand.teleportWithPassengers(cake.stand.location.add(diff))
+                    }
                 }
-                
-                
             }
         }, 1L, 1L)
     }
@@ -159,7 +178,7 @@ class ThrowableCakes : JavaPlugin(), Listener {
                 }
             }
             val cakeData = Material.CAKE.createBlockData() as Cake
-            cakeData.bites = Random.nextInt(1, cakeData.maximumBites)
+            //cakeData.bites = Random.nextInt(1, cakeData.maximumBites)
             val sand = event.player.world.spawnFallingBlock(event.player.eyeLocation, cakeData)
             sand.setGravity(false)
             stand.addPassenger(sand)
