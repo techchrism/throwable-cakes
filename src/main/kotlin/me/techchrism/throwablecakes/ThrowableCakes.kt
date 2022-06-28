@@ -1,5 +1,6 @@
 package me.techchrism.throwablecakes
 
+import me.techchrism.throwablecakes.listeners.ThrowListener
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.Material
@@ -12,31 +13,15 @@ import org.bukkit.plugin.java.JavaPlugin
 import org.bukkit.util.Vector
 import kotlin.math.roundToInt
 
-class ThrowableCakes : JavaPlugin(), Listener {
+class ThrowableCakes : JavaPlugin() {
     companion object {
         val tracker = CakeTracker()
     }
     
     override fun onEnable() {
-        Bukkit.getPluginManager().registerEvents(this, this)
+        Bukkit.getPluginManager().registerEvents(ThrowListener(), this)
         Bukkit.getScheduler().scheduleSyncRepeatingTask(this, {
             tracker.tick()
         }, 1L, 1L)
-    }
-
-    private fun drawVector(vector: Vector, location: Location, resolution: Double) {
-        val steps = (vector.length() / resolution).roundToInt()
-        val unit = vector.clone().multiply(1 / steps.toDouble())
-        for(i in 0..steps) {
-            val loc = location.clone().add(unit.clone().multiply(i))
-            loc.world?.spawnParticle(Particle.FALLING_DUST, loc, 0, Material.ORANGE_CONCRETE.createBlockData())
-        }
-    }
-    
-    @EventHandler
-    private fun onCakeInteract(event: PlayerInteractEvent) {
-        if (event.action == Action.RIGHT_CLICK_AIR && event.item?.type == Material.CAKE) {
-            tracker.throwCake(event.player)
-        }
     }
 }

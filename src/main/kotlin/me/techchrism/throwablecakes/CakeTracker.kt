@@ -7,6 +7,7 @@ import org.bukkit.util.Vector
 import kotlin.math.PI
 import kotlin.math.atan2
 import kotlin.math.pow
+import kotlin.math.roundToInt
 import kotlin.random.Random
 
 class CakeTracker {
@@ -153,6 +154,15 @@ class CakeTracker {
                     cake.stand.teleportWithPassengers(cake.stand.location.add(diff))
                 }
             }
+        }
+    }
+
+    private fun drawVector(vector: Vector, location: Location, resolution: Double) {
+        val steps = (vector.length() / resolution).roundToInt()
+        val unit = vector.clone().multiply(1 / steps.toDouble())
+        for(i in 0..steps) {
+            val loc = location.clone().add(unit.clone().multiply(i))
+            loc.world?.spawnParticle(Particle.FALLING_DUST, loc, 0, Material.ORANGE_CONCRETE.createBlockData())
         }
     }
     
