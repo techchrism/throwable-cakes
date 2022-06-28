@@ -14,7 +14,6 @@ import kotlin.math.atan2
 import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.random.Random
-import kotlin.random.nextInt
 
 class CakeTracker {
     private val earthGravity = Vector(0.0, -9.807, 0.0)
@@ -25,6 +24,7 @@ class CakeTracker {
     private val cakeVolume = (0.5 * 0.875 * 0.875)
     
     private val cakes: HashSet<ThrownCake> = HashSet()
+    var frozen = false
     
     fun tick() {
         cakes.removeIf { !(it.stand.isValid) }
@@ -48,19 +48,19 @@ class CakeTracker {
                     tracked.entity.freezeTicks = tracked.entity.maxFreezeTicks - 20
 
                     // Slide down after a certain delay
-                    tracked.trackedTicks++
+                    if(!frozen) tracked.trackedTicks++
                     var downOffset = 0.0
                     if(tracked.trackedTicks > cake.options.slideDownDelayTicks) {
                         downOffset = (tracked.trackedTicks - cake.options.slideDownDelayTicks).toDouble().pow(2.5) *
                                 (0.05 * 0.001 * cake.options.slideDownSpeed)
 
-                        if(Random.nextInt(0, 3) == 0) {
+                        if(!frozen && Random.nextInt(0, 3) == 0) {
                             cake.stand.world.playSound(cake.stand.location, Sound.BLOCK_BEEHIVE_DRIP, 0.4F, Random.nextDouble(0.5, 1.5).toFloat())
                         }
                     }
 
                     // Display falling dust particles
-                    if(cake.options.dripParticleMaterials != null) {
+                    if(!frozen && cake.options.dripParticleMaterials != null) {
                         for(i in 1..15) {
                             if(particleCount >= particleLimit) break
                             particleCount++
@@ -89,7 +89,7 @@ class CakeTracker {
                 }
             } else if(cake.stillTicks != -1) {
                 // If the cake is sitting still
-                cake.stillTicks++
+                if(!frozen) cake.stillTicks++
 
                 // Remove the cake after some time (to let interp catch up)
                 if(cake.stillTicks >= 4) {
@@ -101,6 +101,14 @@ class CakeTracker {
 
             } else {
                 // If the cake is in motion
+                if(frozen) {
+                    val particleLoc = cake.stand.location.clone().add(cake.velocity.clone().normalize().multiply(-0.5))
+                    with(cake.velocity.clone().normalize().multiply(-0.2)) {
+                        cake.stand.world.spawnParticle(Particle.SMOKE_NORMAL, particleLoc, 0, x, y, z)
+                    }
+                    continue
+                }
+                
                 cake.velocity.add(gravityPerTick)
                 val diff = cake.velocity.clone().multiply(0.05)
                 
