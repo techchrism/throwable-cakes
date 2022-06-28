@@ -23,10 +23,13 @@ class CakeTracker {
     // Subtract 0.125 from a side for each bite
     private val cakeVolume = (0.5 * 0.875 * 0.875)
     
+    private val snowflakeAllocator = ParticleAllocator(4000, 60)
+    
     private val cakes: HashSet<ThrownCake> = HashSet()
     var frozen = false
     
     fun tick() {
+        snowflakeAllocator.tick()
         cakes.removeIf { !(it.stand.isValid) }
 
         val particleLimit = 50
@@ -160,7 +163,7 @@ class CakeTracker {
                     // Add particle effects
                     val orthogonal = diff.clone().setY(0).normalize().rotateAroundY(PI / 2)
                     val particleLoc = loc.clone().subtract(diff.clone().normalize().multiply(0.4))
-                    for(i in 0..500) {
+                    for(i in 0..snowflakeAllocator.allocate(500)) {
                         val vel = diff.clone().normalize()
                             .rotateAroundNonUnitAxis(orthogonal, Random.nextDouble(0.0, PI / 4) * -1)
                             .rotateAroundNonUnitAxis(diff, Random.nextDouble(-0.5 * PI, 0.5 * PI))
@@ -171,7 +174,7 @@ class CakeTracker {
                     }
                     if(cake.options.splashParticleMaterials != null) {
                         for(i in 0..5) {
-                            cake.stand.world.spawnParticle(Particle.BLOCK_CRACK, loc, 40, cake.options.splashParticleMaterials.randomItem().createBlockData())
+                            cake.stand.world.spawnParticle(Particle.BLOCK_CRACK, loc, 70, cake.options.splashParticleMaterials.randomItem().createBlockData())
                         }
                     }
 
