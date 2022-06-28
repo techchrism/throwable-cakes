@@ -8,7 +8,7 @@ class CakeOptions(
     val dripParticleMaterials: List<Material>? = null,
     val trailParticleMaterials: List<Material>? = null,
     val bitesTaken: Int = 0,
-    val slideDownDelayTicks: Int = 50,
+    val slideDownDelayTicks: Int = 5000,
     val slideDownSpeed: Double = 1.0
 ) {
     companion object {

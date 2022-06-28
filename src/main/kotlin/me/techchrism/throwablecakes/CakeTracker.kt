@@ -25,7 +25,7 @@ class CakeTracker {
     
     private val snowflakeAllocator = ParticleAllocator(4000, 60)
     
-    private val cakes: HashSet<ThrownCake> = HashSet()
+    val cakes: HashSet<ThrownCake> = HashSet()
     var frozen = false
     
     fun tick() {
