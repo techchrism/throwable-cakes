@@ -1,4 +1,4 @@
-package me.techchrism.throwablecakes
+package me.techchrism.throwablecakes.data
 
 import org.bukkit.entity.LivingEntity
 import org.bukkit.util.Vector

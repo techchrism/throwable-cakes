@@ -11,15 +11,9 @@ import org.bukkit.event.player.PlayerInteractEvent
 class ThrowListener : Listener {
     @EventHandler
     private fun onCakeInteract(event: PlayerInteractEvent) {
-        if ((event.action == Action.RIGHT_CLICK_AIR || event.action == Action.RIGHT_CLICK_BLOCK) && event.item?.type == Material.CAKE) {
-            ThrowableCakes.tracker.throwCake(event.player)
-            event.isCancelled = true
-        }
-    }
-
-    @EventHandler
-    private fun onBLockPlace(event: BlockPlaceEvent) {
-        if (event.itemInHand.type == Material.CAKE && !event.player.isSneaking) {
+        if ((event.action == Action.RIGHT_CLICK_AIR ||
+                    (event.action == Action.RIGHT_CLICK_BLOCK && !event.player.isSneaking))
+            && event.item?.type == Material.CAKE) {
             ThrowableCakes.tracker.throwCake(event.player)
             event.isCancelled = true
         }

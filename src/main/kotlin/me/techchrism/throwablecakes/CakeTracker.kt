@@ -1,5 +1,8 @@
 package me.techchrism.throwablecakes
 
+import me.techchrism.throwablecakes.data.CakeOptions
+import me.techchrism.throwablecakes.data.ThrownCake
+import me.techchrism.throwablecakes.data.TrackedEntity
 import org.bukkit.*
 import org.bukkit.block.data.type.Cake
 import org.bukkit.entity.*
@@ -9,6 +12,7 @@ import kotlin.math.atan2
 import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.random.Random
+import kotlin.random.nextInt
 
 class CakeTracker {
     private val earthGravity = Vector(0.0, -9.807, 0.0)
@@ -44,9 +48,9 @@ class CakeTracker {
                     // Slide down after a certain delay
                     tracked.trackedTicks++
                     var downOffset = 0.0
-                    val downDelay = 50
-                    if(tracked.trackedTicks > downDelay) {
-                        downOffset = (tracked.trackedTicks - downDelay).toDouble().pow(2.5) * (0.05 * 0.001)
+                    if(tracked.trackedTicks > cake.options.slideDownDelayTicks) {
+                        downOffset = (tracked.trackedTicks - cake.options.slideDownDelayTicks).toDouble().pow(2.5) *
+                                (0.05 * 0.001 * cake.options.slideDownSpeed)
 
                         if(Random.nextInt(0, 3) == 0) {
                             cake.stand.world.playSound(cake.stand.location, Sound.BLOCK_BEEHIVE_DRIP, 0.4F, Random.nextDouble(0.5, 1.5).toFloat())
@@ -54,14 +58,16 @@ class CakeTracker {
                     }
 
                     // Display falling dust particles
-                    for(i in 1..15) {
-                        if(particleCount >= particleLimit) break
-                        particleCount++
-                        val d = 0.7
-                        val particleLoc = cake.stand.location.clone().add(Random.nextDouble(0.0,d)-(d/2), 0.5 - downOffset, Random.nextDouble(0.0,d)-(d/2))
-                        cake.stand.world.spawnParticle(Particle.FALLING_DUST, particleLoc, 0, Material.ORANGE_CONCRETE.createBlockData())
+                    if(cake.options.dripParticleMaterials != null) {
+                        for(i in 1..15) {
+                            if(particleCount >= particleLimit) break
+                            particleCount++
+                            val d = 0.7
+                            val particleLoc = cake.stand.location.clone().add(Random.nextDouble(0.0,d)-(d/2), 0.5 - downOffset, Random.nextDouble(0.0,d)-(d/2))
+                            cake.stand.world.spawnParticle(Particle.FALLING_DUST, particleLoc, 0, cake.options.dripParticleMaterials.randomItem().createBlockData())
+                        }
                     }
-
+                    
                     // Track rotation and relative position
                     val currentAngle = with(tracked.entity.location.direction) { atan2(x, z) }
                     val initialAngle = with(tracked.initialDirection) { atan2(x, z) }
@@ -95,7 +101,18 @@ class CakeTracker {
                 // If the cake is in motion
                 cake.velocity.add(gravityPerTick)
                 val diff = cake.velocity.clone().multiply(0.05)
-                //drawVector(diff, cake.stand.location, 0.1)
+                
+                if(cake.options.trailParticleMaterials != null) {
+                    val resolution = 0.1
+                    val steps = (diff.length() / resolution).roundToInt()
+                    val unit = diff.clone().multiply(-1 / steps.toDouble())
+                    val origin = cake.stand.location.clone().subtract(diff.clone().normalize().multiply(1.5))
+                    for(i in 0..steps) {
+                        val loc = origin.clone().add(unit.clone().multiply(i))
+                        loc.world?.spawnParticle(Particle.FALLING_DUST, loc, 0, cake.options.trailParticleMaterials.randomItem().createBlockData())
+                    }
+                }
+                drawVector(diff, cake.stand.location, 0.1)
 
                 // Raytrace for collisions with blocks and entities
                 val traceResult = cake.stand.world.rayTrace(
@@ -143,8 +160,11 @@ class CakeTracker {
                             cake.stand.world.spawnParticle(Particle.SNOWFLAKE, particleLoc, 0, x, y, z)
                         }
                     }
-                    //val particleLoc = loc.clone()
-                    cake.stand.world.spawnParticle(Particle.BLOCK_CRACK, loc, 200, Material.ORANGE_CONCRETE_POWDER.createBlockData())
+                    if(cake.options.splashParticleMaterials != null) {
+                        for(i in 0..5) {
+                            cake.stand.world.spawnParticle(Particle.BLOCK_CRACK, loc, 40, cake.options.splashParticleMaterials.randomItem().createBlockData())
+                        }
+                    }
 
                     for(i in 0..4) {
                         cake.stand.world.playSound(cake.stand.location, Sound.BLOCK_MUD_BREAK, 0.5F, Random.nextDouble(0.2, 0.7).toFloat())
@@ -158,12 +178,11 @@ class CakeTracker {
     }
 
     private fun drawVector(vector: Vector, location: Location, resolution: Double) {
-        val steps = (vector.length() / resolution).roundToInt()
-        val unit = vector.clone().multiply(1 / steps.toDouble())
-        for(i in 0..steps) {
-            val loc = location.clone().add(unit.clone().multiply(i))
-            loc.world?.spawnParticle(Particle.FALLING_DUST, loc, 0, Material.ORANGE_CONCRETE.createBlockData())
-        }
+        
+    }
+    
+    private fun <T> List<T>.randomItem(): T { 
+        return get(Random.nextInt(size))
     }
     
     fun throwCake(thrower: Player) : ThrownCake? {
@@ -189,10 +208,15 @@ class CakeTracker {
         }
         val velocity = thrower.eyeLocation.direction.multiply(30).add(thrower.velocity)
         
-        return addCake(spawnLoc, velocity, thrower)
+        return addCake(spawnLoc, velocity,
+            CakeOptions(
+                CakeOptions.materialsFromColor(DyeColor.LIME),
+                CakeOptions.materialsFromColor(DyeColor.LIME),
+                CakeOptions.materialsFromColor(DyeColor.LIME)
+            ), thrower)
     }
         
-    private fun addCake(location: Location, velocity: Vector, thrower: Player? = null): ThrownCake? {
+    private fun addCake(location: Location, velocity: Vector, options: CakeOptions, thrower: Player? = null): ThrownCake? {
         val world = location.world ?: return null
         val stand = world.spawn(location, ArmorStand::class.java) {
             with(it) {
@@ -207,12 +231,12 @@ class CakeTracker {
             }
         }
         val cakeData = Material.CAKE.createBlockData() as Cake
-        //cakeData.bites = Random.nextInt(1, cakeData.maximumBites)
+        cakeData.bites = options.bitesTaken
         val sand = world.spawnFallingBlock(location, cakeData)
         sand.setGravity(false)
         stand.addPassenger(sand)
-
-        val cake = ThrownCake(stand, velocity, thrower)
+        
+        val cake = ThrownCake(stand, velocity, thrower, options)
         cakes.add(cake)
         world.playSound(location, Sound.ENTITY_SNOWBALL_THROW, 0.5F, 0.35F)
         return cake
