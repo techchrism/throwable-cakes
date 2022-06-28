@@ -4,7 +4,9 @@ import me.techchrism.throwablecakes.data.CakeOptions
 import me.techchrism.throwablecakes.data.ThrownCake
 import me.techchrism.throwablecakes.data.TrackedEntity
 import org.bukkit.*
+import org.bukkit.block.Block
 import org.bukkit.block.data.type.Cake
+import org.bukkit.block.data.type.Dispenser
 import org.bukkit.entity.*
 import org.bukkit.util.Vector
 import kotlin.math.PI
@@ -112,7 +114,6 @@ class CakeTracker {
                         loc.world?.spawnParticle(Particle.FALLING_DUST, loc, 0, cake.options.trailParticleMaterials.randomItem().createBlockData())
                     }
                 }
-                drawVector(diff, cake.stand.location, 0.1)
 
                 // Raytrace for collisions with blocks and entities
                 val traceResult = cake.stand.world.rayTrace(
@@ -176,13 +177,22 @@ class CakeTracker {
             }
         }
     }
-
-    private fun drawVector(vector: Vector, location: Location, resolution: Double) {
-        
-    }
     
     private fun <T> List<T>.randomItem(): T { 
         return get(Random.nextInt(size))
+    }
+    
+    fun dispenseCake(dispenser: Block): ThrownCake? {
+        val data = dispenser.blockData as Dispenser
+        val direction = data.facing.direction
+        val velocity = direction.clone().multiply(30)
+
+        return addCake(dispenser.location.add(0.5, 0.5, 0.5).add(direction.clone().multiply(0.5)), velocity,
+            CakeOptions(
+                CakeOptions.materialsFromColor(DyeColor.LIME),
+                CakeOptions.materialsFromColor(DyeColor.LIME),
+                CakeOptions.materialsFromColor(DyeColor.LIME)
+            ))
     }
     
     fun throwCake(thrower: Player) : ThrownCake? {
