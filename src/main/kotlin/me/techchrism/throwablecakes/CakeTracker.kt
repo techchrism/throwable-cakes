@@ -53,7 +53,7 @@ class CakeTracker {
                     // Slide down after a certain delay
                     if(!frozen) tracked.trackedTicks++
                     var downOffset = 0.0
-                    if(tracked.trackedTicks > cake.options.slideDownDelayTicks) {
+                    if(cake.options.slideDownDelayTicks != -1 && tracked.trackedTicks > cake.options.slideDownDelayTicks) {
                         downOffset = (tracked.trackedTicks - cake.options.slideDownDelayTicks).toDouble().pow(2.5) *
                                 (0.05 * 0.001 * cake.options.slideDownSpeed)
 
