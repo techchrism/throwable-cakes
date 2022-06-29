@@ -112,8 +112,8 @@ class CakeTracker {
                     continue
                 }
                 
-                cake.velocity.add(gravityPerTick)
-                val diff = cake.velocity.clone().multiply(0.05)
+                cake.velocity.add(gravityPerTick.clone().multiply(cake.options.speedMultiplier))
+                val diff = cake.velocity.clone().multiply(0.05).multiply(cake.options.speedMultiplier)
                 
                 if(cake.options.trailParticleMaterials != null) {
                     val resolution = 0.1
@@ -193,20 +193,15 @@ class CakeTracker {
         return get(Random.nextInt(size))
     }
     
-    fun dispenseCake(dispenser: Block): ThrownCake? {
+    fun dispenseCake(dispenser: Block, options: CakeOptions?): ThrownCake? {
         val data = dispenser.blockData as Dispenser
         val direction = data.facing.direction
         val velocity = direction.clone().multiply(30)
 
-        return addCake(dispenser.location.add(0.5, 0.5, 0.5).add(direction.clone().multiply(0.5)), velocity,
-            CakeOptions(
-                CakeOptions.materialsFromColor(DyeColor.LIME),
-                CakeOptions.materialsFromColor(DyeColor.LIME),
-                CakeOptions.materialsFromColor(DyeColor.LIME)
-            ))
+        return addCake(dispenser.location.add(0.5, 0.5, 0.5).add(direction.clone().multiply(0.5)), velocity, options ?: CakeOptions())
     }
     
-    fun throwCake(thrower: Player) : ThrownCake? {
+    fun throwCake(thrower: Player, options: CakeOptions?) : ThrownCake? {
         // Raytrace for collisions with blocks and entities
         val distanceFromThrower = 2.5
         val origin = thrower.eyeLocation.clone().add(Vector(0.0, -0.5, 0.0))
@@ -229,12 +224,7 @@ class CakeTracker {
         }
         val velocity = thrower.eyeLocation.direction.multiply(30).add(thrower.velocity)
         
-        return addCake(spawnLoc, velocity,
-            CakeOptions(
-                CakeOptions.materialsFromColor(DyeColor.LIME),
-                CakeOptions.materialsFromColor(DyeColor.LIME),
-                CakeOptions.materialsFromColor(DyeColor.LIME)
-            ), thrower)
+        return addCake(spawnLoc, velocity, options ?: CakeOptions(), thrower)
     }
         
     private fun addCake(location: Location, velocity: Vector, options: CakeOptions, thrower: Player? = null): ThrownCake? {
