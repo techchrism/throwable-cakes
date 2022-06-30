@@ -56,5 +56,12 @@ class ThrowableCakes : JavaPlugin() {
 
     override fun onDisable() {
         Bukkit.removeRecipe(timeCrystalKey)
+        tracker.cakes.removeIf {
+            for(passenger in it.stand.passengers) {
+                passenger.remove()
+            }
+            it.stand.remove()
+            true
+        }
     }
 }
