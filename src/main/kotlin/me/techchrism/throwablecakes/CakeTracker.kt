@@ -154,7 +154,11 @@ class CakeTracker {
 
                         // Conservation of momentum (fancy stuff)
                         // Treat bounding box volume as substitute for mass
-                        hitEntity.velocity = hitEntity.velocity.add(diff.clone().multiply(cakeVolume / hitEntity.boundingBox.volume))
+                        var base = hitEntity.velocity
+                        if(base.length() > 1) {
+                            base = Vector()
+                        }
+                        hitEntity.velocity = base.add(diff.clone().multiply(cakeVolume / hitEntity.boundingBox.volume))
                     } else {
                         cake.stand.teleportWithPassengers(loc)
                         cake.stillTicks = 0
