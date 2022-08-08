@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "me.techchrism"
-version = "1.0-SNAPSHOT"
+version = "1.0.0"
 
 repositories {
     mavenCentral()
@@ -40,7 +40,7 @@ tasks.processResources {
 }
 
 tasks.withType<KotlinCompile> {
-    kotlinOptions.jvmTarget = "1.8"
+    kotlinOptions.jvmTarget = "17"
 }
 
 tasks.jar {
