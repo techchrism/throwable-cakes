@@ -26,8 +26,10 @@ class CakeTracker {
     
     val cakes: HashSet<ThrownCake> = HashSet()
     var frozen = false
+    var tickCount = 0
     
     fun tick() {
+        tickCount++
         snowflakeAllocator.tick()
         cakes.removeIf { !(it.stand.isValid) }
 
@@ -76,6 +78,18 @@ class CakeTracker {
                     val currentAngle = with(tracked.entity.location.direction) { atan2(x, z) }
                     val initialAngle = with(tracked.initialDirection) { atan2(x, z) }
 
+                    val pitch = tracked.hitPitch
+                    val yaw = tracked.hitYaw + (currentAngle - initialAngle).toFloat()
+                    val quat = getRotationQuaternion(pitch + (Math.PI / 2.0).toFloat(), yaw)
+                    cake.stand.passengers.forEach {
+                        if(it !is BlockDisplay) return@forEach
+
+                        val transform = it.transformation
+                        val offset = Vector3f(-0.5F, -0.4F, -0.5F)
+                        transform.translation.set(offset.rotate(quat))
+                        transform.rightRotation.set(quat)
+                        it.transformation = transform
+                    }
                     val newLoc = tracked.entity.location.clone().add(tracked.relativePosition.clone()
                         .rotateAroundY(currentAngle - initialAngle))
                         .add(0.0, -1 * downOffset, 0.0)
@@ -148,7 +162,11 @@ class CakeTracker {
                     if(hitEntity != null && hitEntity is LivingEntity) {
                         // Try to prevent z-fighting by adding a small random value
                         val relative = traceResult.hitPosition.clone().subtract(hitEntity.location.toVector()).addRandom()
-                        cake.trackedEntity = TrackedEntity(hitEntity, relative, hitEntity.location.direction.clone())
+
+                        val dir = diff.clone().normalize()
+                        val pitch = asin(-1 * dir.y).toFloat()
+                        val yaw = atan2(dir.x, dir.z).toFloat()
+                        cake.trackedEntity = TrackedEntity(hitEntity, relative, hitEntity.location.direction.clone(), pitch, yaw)
                         cake.stand.teleportWithPassengers(hitEntity.location.clone().add(relative))
 
                         // Conservation of momentum (fancy stuff)
