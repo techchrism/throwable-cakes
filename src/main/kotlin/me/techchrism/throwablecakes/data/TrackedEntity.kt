@@ -7,7 +7,6 @@ data class TrackedEntity(
     val entity: LivingEntity,
     val relativePosition: Vector,
     val initialDirection: Vector,
-    val hitPitch: Float,
-    val hitYaw: Float,
+    val hitVector: Vector,
     var trackedTicks: Int = 0
 )

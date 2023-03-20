@@ -8,6 +8,7 @@ import org.bukkit.block.Block
 import org.bukkit.block.data.type.Cake
 import org.bukkit.block.data.type.Dispenser
 import org.bukkit.entity.*
+import org.bukkit.util.Transformation
 import org.bukkit.util.Vector
 import org.joml.Quaternionf
 import org.joml.Vector3f
@@ -78,17 +79,9 @@ class CakeTracker {
                     val currentAngle = with(tracked.entity.location.direction) { atan2(x, z) }
                     val initialAngle = with(tracked.initialDirection) { atan2(x, z) }
 
-                    val pitch = tracked.hitPitch
-                    val yaw = tracked.hitYaw + (currentAngle - initialAngle).toFloat()
-                    val quat = getRotationQuaternion(pitch + (Math.PI / 2.0).toFloat(), yaw)
                     cake.stand.passengers.forEach {
                         if(it !is BlockDisplay) return@forEach
-
-                        val transform = it.transformation
-                        val offset = Vector3f(-0.5F, -0.4F, -0.5F)
-                        transform.translation.set(offset.rotate(quat))
-                        transform.rightRotation.set(quat)
-                        it.transformation = transform
+                        setTransformationFor(it, tracked.hitVector.clone().rotateAroundY(currentAngle - initialAngle), cake.spin + (cake.spinVel * (cake.stand.ticksLived - tracked.trackedTicks)), cake.size)
                     }
                     val newLoc = tracked.entity.location.clone().add(tracked.relativePosition.clone()
                         .rotateAroundY(currentAngle - initialAngle))
@@ -181,9 +174,7 @@ class CakeTracker {
                         val relative = traceResult.hitPosition.clone().subtract(hitEntity.location.toVector()).addRandom()
 
                         val dir = diff.clone().normalize()
-                        val pitch = asin(-1 * dir.y).toFloat()
-                        val yaw = atan2(dir.x, dir.z).toFloat()
-                        cake.trackedEntity = TrackedEntity(hitEntity, relative, hitEntity.location.direction.clone(), pitch, yaw)
+                        cake.trackedEntity = TrackedEntity(hitEntity, relative, hitEntity.location.direction.clone(), dir)
                         cake.stand.teleportWithPassengers(hitEntity.location.clone().add(relative))
 
                         // Conservation of momentum (fancy stuff)
@@ -223,7 +214,7 @@ class CakeTracker {
                 } else {
                     cake.stand.passengers.forEach {
                         if(it !is BlockDisplay) return@forEach
-                        setTransformationFor(it, diff)
+                        setTransformationFor(it, diff, cake.spin + (cake.spinVel * cake.stand.ticksLived), cake.size)
                     }
                     cake.stand.teleportWithPassengers(cake.stand.location.add(diff))
                 }
@@ -231,24 +222,29 @@ class CakeTracker {
         }
     }
 
-    private fun setTransformationFor(entity: Display, vec: Vector) {
+    private fun setTransformationFor(entity: Display, vec: Vector, spin: Float, scale: Float) {
         val dir = vec.clone().normalize()
         val pitch = asin(-1 * dir.y)
         val yaw = atan2(dir.x, dir.z)
 
-        val quat = getRotationQuaternion(pitch.toFloat() + (Math.PI / 2.0).toFloat(), yaw.toFloat())
+        val quat = getRotationQuaternion(pitch.toFloat() + (Math.PI / 2.0).toFloat(),
+            yaw.toFloat(),
+            spin,
+            Vector3f(dir.x.toFloat(), dir.y.toFloat(), dir.z.toFloat()))
 
         val transform = entity.transformation
-        val offset = Vector3f(-0.5F, -0.4F, -0.5F)
+        val offset = Vector3f(-0.5F, -0.4F, -0.5F).mul(scale)
         transform.translation.set(offset.rotate(quat))
         transform.rightRotation.set(quat)
+        transform.scale.set(scale)
         entity.transformation = transform
     }
 
-    private fun getRotationQuaternion(pitch: Float, yaw: Float): Quaternionf {
+    private fun getRotationQuaternion(pitch: Float, yaw: Float, spin: Float, spinVec: Vector3f): Quaternionf {
+        val qSpin = Quaternionf().rotateAxis(spin, spinVec)
         val qYaw = Quaternionf().rotateY(yaw)
         val qPitch = Quaternionf().rotateX(pitch)
-        return qYaw.mul(qPitch)
+        return qSpin.mul(qYaw.mul(qPitch))
     }
     
     private fun <T> List<T>.randomItem(): T { 
@@ -267,10 +263,6 @@ class CakeTracker {
         // Raytrace for collisions with blocks and entities
         val distanceFromThrower = 2.5
         val origin = thrower.eyeLocation.clone().add(Vector(0.0, -0.5, 0.0))
-        val selfTarget = options?.trackingUUID?.equals(thrower.uniqueId) == true || options?.trackingUUID?.version() == 0
-        if(selfTarget) {
-            origin.add(thrower.eyeLocation.direction.normalize().multiply(10))
-        }
         
         val traceResult = thrower.world.rayTrace(
             origin,
@@ -289,9 +281,6 @@ class CakeTracker {
             origin.add(thrower.eyeLocation.direction.normalize().multiply(1.5))
         }
         val velocity = thrower.eyeLocation.direction.multiply(30).add(thrower.velocity)
-        if(selfTarget) {
-            velocity.multiply(-1)
-        }
         
         return addCake(spawnLoc, velocity, options ?: CakeOptions(), thrower)
     }
@@ -299,11 +288,13 @@ class CakeTracker {
     private fun addCake(location: Location, velocity: Vector, options: CakeOptions, thrower: Player? = null): ThrownCake? {
         val world = location.world ?: return null
 
+        val spin = Random.nextDouble(0.0, 2 * PI).toFloat()
+        val scale = Random.nextDouble(0.5, 1.5).toFloat()
         val cakeData = Material.CAKE.createBlockData() as Cake
         cakeData.bites = options.bitesTaken
         val display = world.spawn(location, BlockDisplay::class.java) {
             it.block = cakeData
-            setTransformationFor(it, velocity)
+            setTransformationFor(it, velocity, spin, scale)
         }
 
         val stand = world.spawn(location, ArmorStand::class.java) {
@@ -320,7 +311,7 @@ class CakeTracker {
             }
         }
 
-        val cake = ThrownCake(stand, velocity, thrower, options)
+        val cake = ThrownCake(stand, velocity, thrower, options, spin, scale, Random.nextDouble(-0.1, 0.1).toFloat())
         cakes.add(cake)
         world.playSound(location, Sound.ENTITY_SNOWBALL_THROW, 0.5F, 0.35F)
         return cake
