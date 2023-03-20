@@ -26,12 +26,15 @@ class CakeTracker {
     private val snowflakeAllocator = ParticleAllocator(4000, 60)
     
     val cakes: HashSet<ThrownCake> = HashSet()
+    private val newCakes: HashSet<ThrownCake> = HashSet()
     var frozen = false
     var tickCount = 0
     
     fun tick() {
         tickCount++
         snowflakeAllocator.tick()
+        cakes.addAll(newCakes)
+        newCakes.clear()
         cakes.removeIf { !(it.stand.isValid) }
 
         val particleLimit = 50
@@ -212,6 +215,15 @@ class CakeTracker {
                         cake.stand.world.playSound(cake.stand.location, Sound.BLOCK_MUD_FALL, 1.0F, Random.nextDouble(0.9, 1.7).toFloat())
                     }
                 } else {
+                    // No trace result, regular motion
+                    if(cake.options.firework) {
+                        val crossVector = diff.clone().crossProduct(diff.clone().rotateAroundY(PI / 2)).normalize()
+                        val rotated = crossVector.clone().rotateAroundAxis(diff, Math.toRadians((cake.stand.ticksLived / 20.0) * 360.0) + cake.spin)
+
+                        val duplicateOptions = cake.options.copy(firework = false)
+                        addCake(cake.stand.location.clone().add(rotated), rotated.clone().multiply(15), duplicateOptions)
+                        addCake(cake.stand.location.clone().add(rotated), rotated.clone().rotateAroundAxis(diff, Math.PI).multiply(15), duplicateOptions)
+                    }
                     cake.stand.passengers.forEach {
                         if(it !is BlockDisplay) return@forEach
                         setTransformationFor(it, diff, cake.spin + (cake.spinVel * cake.stand.ticksLived), cake.size)
@@ -312,7 +324,7 @@ class CakeTracker {
         }
 
         val cake = ThrownCake(stand, velocity, thrower, options, spin, scale, Random.nextDouble(-0.1, 0.1).toFloat())
-        cakes.add(cake)
+        newCakes.add(cake)
         world.playSound(location, Sound.ENTITY_SNOWBALL_THROW, 0.5F, 0.35F)
         return cake
     }

@@ -9,7 +9,7 @@ import org.bukkit.persistence.PersistentDataType
 import java.util.*
 import kotlin.collections.ArrayList
 
-class CakeOptions(
+data class CakeOptions(
     val splashParticleMaterials: List<Material>? = defaultMaterial,
     val dripParticleMaterials: List<Material>? = defaultMaterial,
     val trailParticleMaterials: List<Material>? = null,
@@ -18,6 +18,7 @@ class CakeOptions(
     val slideDownDelayTicks: Int = 50,
     val slideDownSpeed: Double = 1.0,
     val speedMultiplier: Double = 1.0,
+    val firework: Boolean = false,
     val trackingUUID: UUID? = null
 ) {
     companion object {
@@ -44,6 +45,7 @@ class CakeOptions(
                 color = color,
                 slideDownDelayTicks = data.get(ThrowableCakes.slideDownDelayTicksKey, PersistentDataType.INTEGER) ?: 50,
                 speedMultiplier = data.get(ThrowableCakes.speedKey, PersistentDataType.FLOAT)?.toDouble() ?: 1.0,
+                firework = data.get(ThrowableCakes.fireworkKey, PersistentDataType.BYTE) == 1.toByte(),
                 trackingUUID = data.get(ThrowableCakes.trackingUUIDKey, PersistentDataType.STRING)?.let { UUID.fromString(it) }
             )
         }
@@ -52,6 +54,7 @@ class CakeOptions(
                              trail: Boolean = false,
                              sticky: Boolean = false,
                              slow: Boolean = false,
+                             firework: Boolean = false,
                              trackingUUID: UUID? = null,
                              existingOptions: CakeOptions? = null) : ItemStack {
             
@@ -83,6 +86,10 @@ class CakeOptions(
                 val uuid = (trackingUUID?:existingOptions!!.trackingUUID)!!
                 desc.add("${ChatColor.GOLD} ● Tracking" + (if(uuid.version() == 0) {" (self)"} else {""}))
                 meta.persistentDataContainer.set(ThrowableCakes.trackingUUIDKey, PersistentDataType.STRING, uuid.toString())
+            }
+            if(firework || existingOptions?.firework == true) {
+                desc.add("${ChatColor.GOLD} ● Firework")
+                meta.persistentDataContainer.set(ThrowableCakes.fireworkKey, PersistentDataType.BYTE, 1)
             }
             meta.lore = desc
             item.itemMeta = meta
