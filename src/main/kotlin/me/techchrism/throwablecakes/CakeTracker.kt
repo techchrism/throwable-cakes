@@ -135,16 +135,15 @@ class CakeTracker {
 
                 if(cakeTrackingEntity == null) {
                     cake.velocity.add(gravityPerTick.clone().multiply(cake.options.speedMultiplier))
-                }
-
-                val diff = if(cakeTrackingEntity != null) {
+                } else {
                     val vec = cakeTrackingEntity.eyeLocation.clone().subtract(cake.stand.location.clone()).toVector()
                     vec.normalize().multiply(cake.options.speedMultiplier)
                     vec.y = vec.y * 2.0
-                    vec
-                } else {
-                    cake.velocity.clone().multiply(0.05).multiply(cake.options.speedMultiplier)
+                    vec.add(cake.velocity.clone().multiply(-0.1))
+                    cake.velocity.multiply(0.97).add(vec)
                 }
+
+                val diff = cake.velocity.clone().multiply(0.05).multiply(cake.options.speedMultiplier)
                 
                 if(cake.options.trailParticleMaterials != null) {
                     val resolution = 0.1
