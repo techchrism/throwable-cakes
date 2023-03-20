@@ -9,10 +9,9 @@ import org.bukkit.block.data.type.Cake
 import org.bukkit.block.data.type.Dispenser
 import org.bukkit.entity.*
 import org.bukkit.util.Vector
-import kotlin.math.PI
-import kotlin.math.atan2
-import kotlin.math.pow
-import kotlin.math.roundToInt
+import org.joml.Quaternionf
+import org.joml.Vector3f
+import kotlin.math.*
 import kotlin.random.Random
 
 class CakeTracker {
@@ -187,10 +186,31 @@ class CakeTracker {
                         cake.stand.world.playSound(cake.stand.location, Sound.BLOCK_MUD_FALL, 1.0F, Random.nextDouble(0.9, 1.7).toFloat())
                     }
                 } else {
+                    val dir = diff.clone().normalize()
+                    val pitch = asin(-1 * dir.y)
+                    val yaw = atan2(dir.x, dir.z)
+
+                    val quat = getRotationQuaternion(pitch.toFloat() + (Math.PI / 2.0).toFloat(), yaw.toFloat())
+                    cake.stand.passengers.forEach {
+                        if(it !is BlockDisplay) return@forEach
+
+                        val transform = it.transformation
+                        val offset = Vector3f(-0.5F, -0.4F, -0.5F)
+                        transform.translation.set(offset.rotate(quat))
+                        transform.rightRotation.set(quat)
+                        it.transformation = transform
+                    }
+
                     cake.stand.teleportWithPassengers(cake.stand.location.add(diff))
                 }
             }
         }
+    }
+
+    private fun getRotationQuaternion(pitch: Float, yaw: Float): Quaternionf {
+        val qYaw = Quaternionf().rotateY(yaw)
+        val qPitch = Quaternionf().rotateX(pitch)
+        return qYaw.mul(qPitch)
     }
     
     private fun <T> List<T>.randomItem(): T { 
@@ -233,6 +253,16 @@ class CakeTracker {
         
     private fun addCake(location: Location, velocity: Vector, options: CakeOptions, thrower: Player? = null): ThrownCake? {
         val world = location.world ?: return null
+
+        val cakeData = Material.CAKE.createBlockData() as Cake
+        cakeData.bites = options.bitesTaken
+        val display = world.spawn(location, BlockDisplay::class.java) {
+            it.block = cakeData
+            val transformation = it.transformation
+            transformation.translation.set(-0.5, 0.0, -0.5)
+            it.transformation = transformation
+        }
+
         val stand = world.spawn(location, ArmorStand::class.java) {
             with(it) {
                 setArms(false)
@@ -243,14 +273,10 @@ class CakeTracker {
                 isSmall = true
                 isVisible = false
                 isMarker = true
+                addPassenger(display)
             }
         }
-        val cakeData = Material.CAKE.createBlockData() as Cake
-        cakeData.bites = options.bitesTaken
-        val sand = world.spawnFallingBlock(location, cakeData)
-        sand.setGravity(false)
-        stand.addPassenger(sand)
-        
+
         val cake = ThrownCake(stand, velocity, thrower, options)
         cakes.add(cake)
         world.playSound(location, Sound.ENTITY_SNOWBALL_THROW, 0.5F, 0.35F)
