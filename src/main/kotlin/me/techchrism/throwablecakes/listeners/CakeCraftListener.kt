@@ -17,12 +17,14 @@ class CakeCraftListener : Listener {
         var honey = 0
         var cake: ItemStack? = null
         var dye: DyeColor? = null
+        var tracker = 0
         
         for(item in event.inventory.contents) {
             if(item.type == Material.FEATHER) feathers++
             else if(item.type == Material.SUGAR) sugar++
             else if(item.type == Material.HONEY_BOTTLE) honey++
-            else if(item.type == Material.CAKE && cake == null) cake = item 
+            else if(item.type == Material.REDSTONE_TORCH) tracker++
+            else if(item.type == Material.CAKE && cake == null) cake = item
             else {
                 val color = DyeToColor.mapping[item.type]
                 if(color != null && dye == null) {
@@ -32,13 +34,14 @@ class CakeCraftListener : Listener {
             }
         }
         
-        if(feathers > 1 || sugar > 1 || honey > 1 || cake == null) return
+        if(feathers > 1 || sugar > 1 || honey > 1 || tracker > 1 || cake == null) return
         
         event.inventory.result = CakeOptions.generateCakeItem(
             color = dye,
             trail = (sugar == 1),
             slow = (feathers == 1),
             sticky = (honey == 1),
+            trackingUUID = (if(tracker == 1) event.viewers[0].uniqueId else null),
             existingOptions = CakeOptions.fromItem(cake)
         )
     }

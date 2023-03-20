@@ -24,6 +24,7 @@ class ThrowableCakes : JavaPlugin() {
         lateinit var slideDownDelayTicksKey: NamespacedKey
         lateinit var speedKey: NamespacedKey
         lateinit var timeCrystalKey: NamespacedKey
+        lateinit var trackingUUIDKey: NamespacedKey
     }
     
     override fun onEnable() {
@@ -32,6 +33,7 @@ class ThrowableCakes : JavaPlugin() {
         slideDownDelayTicksKey = NamespacedKey.fromString("slidedelay", this)!!
         speedKey = NamespacedKey.fromString("speed", this)!!
         timeCrystalKey = NamespacedKey.fromString("timecrystal", this)!!
+        trackingUUIDKey = NamespacedKey.fromString("trackinguuid", this)!!
         
         Bukkit.getPluginManager().registerEvents(ThrowListener(), this)
         Bukkit.getPluginManager().registerEvents(FreezeListener(), this)

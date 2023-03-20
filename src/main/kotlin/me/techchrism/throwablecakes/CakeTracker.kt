@@ -124,9 +124,27 @@ class CakeTracker {
                     }
                     continue
                 }
-                
-                cake.velocity.add(gravityPerTick.clone().multiply(cake.options.speedMultiplier))
-                val diff = cake.velocity.clone().multiply(0.05).multiply(cake.options.speedMultiplier)
+
+                val cakeTrackingEntity = cake.options.trackingUUID?.let {
+                    if(it.version() == 0) {
+                        cake.thrower
+                    } else {
+                        Bukkit.getEntity(it) as LivingEntity?
+                    }
+                }
+
+                if(cakeTrackingEntity == null) {
+                    cake.velocity.add(gravityPerTick.clone().multiply(cake.options.speedMultiplier))
+                }
+
+                val diff = if(cakeTrackingEntity != null) {
+                    val vec = cakeTrackingEntity.eyeLocation.clone().subtract(cake.stand.location.clone()).toVector()
+                    vec.normalize().multiply(cake.options.speedMultiplier)
+                    vec.y = vec.y * 2.0
+                    vec
+                } else {
+                    cake.velocity.clone().multiply(0.05).multiply(cake.options.speedMultiplier)
+                }
                 
                 if(cake.options.trailParticleMaterials != null) {
                     val resolution = 0.1
@@ -150,7 +168,7 @@ class CakeTracker {
                 ) {
                     it is LivingEntity &&
                             !it.isInvisible &&
-                            it != cake.thrower &&
+                            (cake.stand.ticksLived > 10 || it != cake.thrower) &&
                             it != cake.stand &&
                             !cake.stand.passengers.contains(it)
                 }
@@ -247,6 +265,9 @@ class CakeTracker {
         // Raytrace for collisions with blocks and entities
         val distanceFromThrower = 2.5
         val origin = thrower.eyeLocation.clone().add(Vector(0.0, -0.5, 0.0))
+        if(options?.trackingUUID?.equals(thrower.uniqueId) == true || options?.trackingUUID?.version() == 0) {
+            origin.add(thrower.eyeLocation.direction.normalize().multiply(10))
+        }
         
         val traceResult = thrower.world.rayTrace(
             origin,

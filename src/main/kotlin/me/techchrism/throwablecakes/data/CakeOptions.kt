@@ -6,6 +6,8 @@ import org.bukkit.DyeColor
 import org.bukkit.Material
 import org.bukkit.inventory.ItemStack
 import org.bukkit.persistence.PersistentDataType
+import java.util.*
+import kotlin.collections.ArrayList
 
 class CakeOptions(
     val splashParticleMaterials: List<Material>? = defaultMaterial,
@@ -15,7 +17,8 @@ class CakeOptions(
     val bitesTaken: Int = 0,
     val slideDownDelayTicks: Int = 50,
     val slideDownSpeed: Double = 1.0,
-    val speedMultiplier: Double = 1.0
+    val speedMultiplier: Double = 1.0,
+    val trackingUUID: UUID? = null
 ) {
     companion object {
         val defaultMaterial = materialsFromColor(DyeColor.WHITE)
@@ -40,7 +43,8 @@ class CakeOptions(
                 trailParticleMaterials = if(data.get(ThrowableCakes.trailKey, PersistentDataType.BYTE) == 1.toByte()) materials else null,
                 color = color,
                 slideDownDelayTicks = data.get(ThrowableCakes.slideDownDelayTicksKey, PersistentDataType.INTEGER) ?: 50,
-                speedMultiplier = data.get(ThrowableCakes.speedKey, PersistentDataType.FLOAT)?.toDouble() ?: 1.0
+                speedMultiplier = data.get(ThrowableCakes.speedKey, PersistentDataType.FLOAT)?.toDouble() ?: 1.0,
+                trackingUUID = data.get(ThrowableCakes.trackingUUIDKey, PersistentDataType.STRING)?.let { UUID.fromString(it) }
             )
         }
         
@@ -48,6 +52,7 @@ class CakeOptions(
                              trail: Boolean = false,
                              sticky: Boolean = false,
                              slow: Boolean = false,
+                             trackingUUID: UUID? = null,
                              existingOptions: CakeOptions? = null) : ItemStack {
             
             val item = ItemStack(Material.CAKE, 1)
@@ -73,6 +78,11 @@ class CakeOptions(
             if(slow || (existingSpeed != null && existingSpeed < 1.0)) {
                 desc.add("${ChatColor.GOLD} ● Slow")
                 meta.persistentDataContainer.set(ThrowableCakes.speedKey, PersistentDataType.FLOAT, 0.3F)
+            }
+            if(trackingUUID != null || existingOptions?.trackingUUID != null) {
+                val uuid = (trackingUUID?:existingOptions!!.trackingUUID)!!
+                desc.add("${ChatColor.GOLD} ● Tracking" + (if(uuid.version() == 0) {" (self)"} else {""}))
+                meta.persistentDataContainer.set(ThrowableCakes.trackingUUIDKey, PersistentDataType.STRING, uuid.toString())
             }
             meta.lore = desc
             item.itemMeta = meta
