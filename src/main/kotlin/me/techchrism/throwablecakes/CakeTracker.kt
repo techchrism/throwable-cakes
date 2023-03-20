@@ -222,25 +222,28 @@ class CakeTracker {
                         cake.stand.world.playSound(cake.stand.location, Sound.BLOCK_MUD_FALL, 1.0F, Random.nextDouble(0.9, 1.7).toFloat())
                     }
                 } else {
-                    val dir = diff.clone().normalize()
-                    val pitch = asin(-1 * dir.y)
-                    val yaw = atan2(dir.x, dir.z)
-
-                    val quat = getRotationQuaternion(pitch.toFloat() + (Math.PI / 2.0).toFloat(), yaw.toFloat())
                     cake.stand.passengers.forEach {
                         if(it !is BlockDisplay) return@forEach
-
-                        val transform = it.transformation
-                        val offset = Vector3f(-0.5F, -0.4F, -0.5F)
-                        transform.translation.set(offset.rotate(quat))
-                        transform.rightRotation.set(quat)
-                        it.transformation = transform
+                        setTransformationFor(it, diff)
                     }
-
                     cake.stand.teleportWithPassengers(cake.stand.location.add(diff))
                 }
             }
         }
+    }
+
+    private fun setTransformationFor(entity: Display, vec: Vector) {
+        val dir = vec.clone().normalize()
+        val pitch = asin(-1 * dir.y)
+        val yaw = atan2(dir.x, dir.z)
+
+        val quat = getRotationQuaternion(pitch.toFloat() + (Math.PI / 2.0).toFloat(), yaw.toFloat())
+
+        val transform = entity.transformation
+        val offset = Vector3f(-0.5F, -0.4F, -0.5F)
+        transform.translation.set(offset.rotate(quat))
+        transform.rightRotation.set(quat)
+        entity.transformation = transform
     }
 
     private fun getRotationQuaternion(pitch: Float, yaw: Float): Quaternionf {
@@ -265,7 +268,8 @@ class CakeTracker {
         // Raytrace for collisions with blocks and entities
         val distanceFromThrower = 2.5
         val origin = thrower.eyeLocation.clone().add(Vector(0.0, -0.5, 0.0))
-        if(options?.trackingUUID?.equals(thrower.uniqueId) == true || options?.trackingUUID?.version() == 0) {
+        val selfTarget = options?.trackingUUID?.equals(thrower.uniqueId) == true || options?.trackingUUID?.version() == 0
+        if(selfTarget) {
             origin.add(thrower.eyeLocation.direction.normalize().multiply(10))
         }
         
@@ -286,6 +290,9 @@ class CakeTracker {
             origin.add(thrower.eyeLocation.direction.normalize().multiply(1.5))
         }
         val velocity = thrower.eyeLocation.direction.multiply(30).add(thrower.velocity)
+        if(selfTarget) {
+            velocity.multiply(-1)
+        }
         
         return addCake(spawnLoc, velocity, options ?: CakeOptions(), thrower)
     }
@@ -297,9 +304,7 @@ class CakeTracker {
         cakeData.bites = options.bitesTaken
         val display = world.spawn(location, BlockDisplay::class.java) {
             it.block = cakeData
-            val transformation = it.transformation
-            transformation.translation.set(-0.5, 0.0, -0.5)
-            it.transformation = transformation
+            setTransformationFor(it, velocity)
         }
 
         val stand = world.spawn(location, ArmorStand::class.java) {
