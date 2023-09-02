@@ -304,7 +304,10 @@ class CakeTracker {
         val scale = Random.nextDouble(0.5, 1.5).toFloat()
         val cakeData = Material.CAKE.createBlockData() as Cake
         cakeData.bites = options.bitesTaken
-        val display = world.spawn(location, BlockDisplay::class.java) {
+        val locClone = location.clone()
+        locClone.pitch = 0.0F
+        locClone.yaw = 0.0F
+        val display = world.spawn(locClone, BlockDisplay::class.java) {
             it.block = cakeData
             setTransformationFor(it, velocity, spin, scale)
         }
